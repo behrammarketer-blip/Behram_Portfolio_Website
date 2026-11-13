@@ -9,6 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import type {InquiryRecord, PortfolioConfig} from '../types/portfolio';
+import {deleteInquiry, listInquiries} from '../utils/portfolioClient';
 
 interface QuickEditStudioProps {
   isOpen: boolean;
@@ -47,11 +48,8 @@ export function QuickEditStudio({
   const fetchInquiries = async () => {
     setLoadingInquiries(true);
     try {
-      const res = await fetch('/api/inquiries');
-      if (res.ok) {
-        const data = await res.json();
-        setInquiries(Array.isArray(data.inquiries) ? data.inquiries : []);
-      }
+      const items = await listInquiries();
+      setInquiries(items);
     } finally {
       setLoadingInquiries(false);
     }
@@ -85,13 +83,8 @@ export function QuickEditStudio({
   };
 
   const handleDeleteInquiry = async (id: string) => {
-    const res = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setInquiries(Array.isArray(data.inquiries) ? data.inquiries : []);
-    }
+    const next = await deleteInquiry(id);
+    setInquiries(next);
   };
 
   return (

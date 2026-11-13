@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import {SERVICES_LIST} from '../data/defaultPortfolio';
 import type {InquiryFormInput, InquiryRecord, PortfolioConfig} from '../types/portfolio';
+import {submitInquiry} from '../utils/portfolioClient';
 
 interface ContactAndFooterProps {
   config: PortfolioConfig;
@@ -65,6 +66,7 @@ export function ContactAndFooter({
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [serverError, setServerError] = useState('');
   const [submittedRecord, setSubmittedRecord] = useState<InquiryRecord | null>(null);
+  const [submissionMode, setSubmissionMode] = useState<'server' | 'static'>('server');
 
   useEffect(() => {
     if (preselectedService) {
@@ -103,37 +105,27 @@ export function ContactAndFooter({
     setFieldErrors({});
     setStatus('submitting');
 
-    try {
-      const response = await fetch('/api/inquiries', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(form),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        if (payload?.fieldErrors) {
-          setFieldErrors(payload.fieldErrors);
-        }
-        setServerError(payload?.error || 'Unable to submit inquiry. Please try again.');
-        setStatus('error');
-        return;
+    const result = await submitInquiry(form);
+    if (!result.ok || !result.inquiry) {
+      if (result.fieldErrors) {
+        setFieldErrors(result.fieldErrors);
       }
-
-      setSubmittedRecord(payload.inquiry);
-      setStatus('success');
-      setForm({
-        fullName: '',
-        email: '',
-        companyName: '',
-        serviceRequired: SERVICES_LIST[0].title,
-        projectBudget: '',
-        projectDetails: '',
-      });
-    } catch {
-      setServerError('Network error while contacting the server. Please try again.');
+      setServerError(result.error || 'Unable to submit inquiry. Please try again.');
       setStatus('error');
+      return;
     }
+
+    setSubmissionMode(result.mode);
+    setSubmittedRecord(result.inquiry);
+    setStatus('success');
+    setForm({
+      fullName: '',
+      email: '',
+      companyName: '',
+      serviceRequired: SERVICES_LIST[0].title,
+      projectBudget: '',
+      projectDetails: '',
+    });
   };
 
   const whatsappUrl = formatWhatsAppUrl(
@@ -341,26 +333,61 @@ export function ContactAndFooter({
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-[#475569]">
                       Thank you, <span className="font-semibold text-[#0F172A]">{submittedRecord.fullName}</span>. Your project inquiry for{' '}
-                      <span className="font-semibold text-[#0F172A]">{submittedRecord.serviceRequired}</span> has been saved by the server.
+                      <span className="font-semibold text-[#0F172A]">{submittedRecord.serviceRequired}</span>{' '}
+                      {submissionMode === 'server'
+                        ? 'has been saved by the server.'
+                        : 'has been recorded. Send it directly via email or WhatsApp below for an immediate response.'}
                     </p>
                     <p className="mt-3 font-mono text-xs text-[#475569] tabular-nums">
                       Reference: {submittedRecord.id} · {new Date(submittedRecord.submittedAt).toLocaleString()}
                     </p>
                     <div className="mt-6 flex flex-wrap gap-3">
+                      {!isPlaceholderValue(config.contact.email) && (
+                        <a
+                          href={`mailto:${config.contact.email}?subject=${encodeURIComponent(
+                            `Project Inquiry: ${submittedRecord.serviceRequired} (${submittedRecord.fullName})`,
+                          )}&body=${encodeURIComponent(
+                            `Name: ${submittedRecord.fullName}\nCompany: ${submittedRecord.companyName}\nEmail: ${submittedRecord.email}\nService: ${submittedRecord.serviceRequired}\nBudget: ${submittedRecord.projectBudget}\n\nDetails:\n${submittedRecord.projectDetails}`,
+                          )}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
+                        >
+                          <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Send via Email</span>
+                        </a>
+                      )}
+                      {formatWhatsAppUrl(
+                        config.contact.whatsapp,
+                        `Hello Behram, I'm ${submittedRecord.fullName} (${submittedRecord.companyName}). I'd like to discuss ${submittedRecord.serviceRequired}: ${submittedRecord.projectDetails}`,
+                      ) && (
+                        <a
+                          href={
+                            formatWhatsAppUrl(
+                              config.contact.whatsapp,
+                              `Hello Behram, I'm ${submittedRecord.fullName} (${submittedRecord.companyName}). I'd like to discuss ${submittedRecord.serviceRequired}: ${submittedRecord.projectDetails}`,
+                            ) || '#'
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#2563EB]/30 bg-white px-4 py-2 text-xs font-semibold text-[#0F172A] hover:border-[#2563EB]"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5 text-[#2563EB]" aria-hidden="true" />
+                          <span>Send via WhatsApp</span>
+                        </a>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
                           setStatus('idle');
                           setSubmittedRecord(null);
                         }}
-                        className="rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-[#0F172A] hover:border-slate-300"
                       >
                         Send Another Inquiry
                       </button>
                       <button
                         type="button"
                         onClick={() => onOpenEditor('inquiries')}
-                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-[#0F172A] hover:border-slate-300"
+                        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-[#475569] hover:text-[#0F172A]"
                       >
                         View Recorded Inquiries
                       </button>

@@ -3,8 +3,11 @@ import projectStrategyImg from '../assets/images/project_strategy_analytics_1794
 import projectSocialImg from '../assets/images/project_social_brand_1794575929492.jpg';
 import projectSeoImg from '../assets/images/project_seo_performance_1794575929631.jpg';
 
+const baseUrl = import.meta.env.BASE_URL || './';
+const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
 export const PORTFOLIO_ASSETS = {
-  portrait: '/assets/aistudio/Behram_Shah__Digital_Marketing_Strategist_e47781c7.png',
+  portrait: `${normalizedBase}assets/aistudio/Behram_Shah__Digital_Marketing_Strategist_e47781c7.png`,
   education: educationCampusImg,
   thumbnails: {
     strategy: projectStrategyImg,

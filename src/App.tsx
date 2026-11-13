@@ -14,6 +14,11 @@ import {QuickEditStudio} from './components/QuickEditStudio';
 import {SkillsEducationWhy} from './components/SkillsEducationWhy';
 import {DEFAULT_PORTFOLIO_CONFIG} from './data/defaultPortfolio';
 import type {PortfolioConfig, ProjectItem, ServiceItem} from './types/portfolio';
+import {
+  loadPortfolioConfig,
+  resetPortfolioConfig,
+  savePortfolioConfig,
+} from './utils/portfolioClient';
 
 const TRACKED_SECTIONS = [
   'home',
@@ -39,26 +44,14 @@ export default function App() {
   >('contact');
   const [preselectedService, setPreselectedService] = useState('');
 
-  // Load any saved Quick-Edit overrides from backend with safe deep contact merge
+  // Load any saved Quick-Edit overrides (API first, static localStorage fallback)
   useEffect(() => {
     let active = true;
-    fetch('/api/portfolio')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (active && data?.portfolio) {
-          setConfig({
-            ...DEFAULT_PORTFOLIO_CONFIG,
-            ...data.portfolio,
-            contact: {
-              ...DEFAULT_PORTFOLIO_CONFIG.contact,
-              ...(data.portfolio.contact || {}),
-            },
-          });
-        }
-      })
-      .catch(() => {
-        // Fallback smoothly to default portfolio config
-      });
+    loadPortfolioConfig().then((loaded) => {
+      if (active) {
+        setConfig(loaded);
+      }
+    });
     return () => {
       active = false;
     };
@@ -112,28 +105,15 @@ export default function App() {
   };
 
   const handleSaveConfig = async (next: PortfolioConfig): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/portfolio', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(next),
-      });
-      if (res.ok) {
-        setConfig(next);
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
+    const ok = await savePortfolioConfig(next);
+    if (ok) {
+      setConfig(next);
     }
+    return ok;
   };
 
   const handleResetConfig = async () => {
-    try {
-      await fetch('/api/portfolio/reset', {method: 'POST'});
-    } catch {
-      // Ignore network failure and reset client state
-    }
+    await resetPortfolioConfig();
     setConfig(DEFAULT_PORTFOLIO_CONFIG);
   };
 
